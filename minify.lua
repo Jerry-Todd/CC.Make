@@ -1,6 +1,7 @@
 local path = ({ ... })[1]
 local output_path = ({ ... })[2]
 local export_var_name = ({ ... })[3] or "export"  -- configurable export variable name
+local line_length = ({ ... })[4]  -- configurable export variable name
 
 local keywords = {
     "and", "break", "do", "else", "elseif", "end", "false", "for",
@@ -248,17 +249,15 @@ end
 
 local function build_file(tokens, line_length)
     local result = ""
+    local currentLineLength = 0
     
     for i = 1, #tokens do
         local token = tokens[i]
         local nextToken = tokens[i + 1]
         
-        result = result .. token
-        
         -- Determine if we need a space between this token and the next
+        local needsSpace = false
         if nextToken then
-            local needsSpace = false
-            
             -- Both are alphanumeric (identifiers, keywords, numbers)
             if token:match("[%w_]$") and nextToken:match("^[%w_]") then
                 needsSpace = true
@@ -280,10 +279,23 @@ local function build_file(tokens, line_length)
             elseif token == ">" and nextToken == "=" then
                 needsSpace = false
             end
-            
-            if needsSpace then
-                result = result .. " "
-            end
+        end
+        
+        -- Calculate how much we're about to add
+        local addLength = #token + (needsSpace and 1 or 0)
+        
+        -- Check if we need a line break (only if line_length is set)
+        if line_length and line_length > 0 and currentLineLength + addLength > line_length and currentLineLength > 0 then
+            result = result .. "\n"
+            currentLineLength = 0
+        end
+        
+        result = result .. token
+        currentLineLength = currentLineLength + #token
+        
+        if needsSpace then
+            result = result .. " "
+            currentLineLength = currentLineLength + 1
         end
     end
     
@@ -298,7 +310,7 @@ end
 local tokens = tokenize(file.readAll())
 file.close()
 local minified = minify(tokens)
-local code = build_file(minified)
+local code = build_file(minified, tonumber(line_length))
 
 local output_file = fs.open(output_path, 'w')
 if not output_file then

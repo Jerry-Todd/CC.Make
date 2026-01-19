@@ -16,5 +16,6 @@ shell.run(
 shell.run(
     "minify",
     "Output/"..(args[3] or config.output_name),
-    "Output/mini.lua"
+    "Output/mini.lua",
+    5
 )
