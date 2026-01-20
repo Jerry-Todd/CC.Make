@@ -59,11 +59,8 @@ if args[1] == "config" then
             entry_file = "project.lua",
             output_path = "output.lua"
         }
-        local config_text = "{\n"
-        for key, value in pairs(config) do
-            config_text = config_text ..'   "'..key..'": "'..value..'",\n'
-        end
-        config_text = config_text .. '}'
+        local config_text = textutils.serialiseJSON(config)
+        config_text = config_text:gsub("{", "{\n    "):gsub(",", ",\n   "):gsub("}", "\n}"):gsub(":", ": ")
         local config_file = fs.open("config.json", 'w')
         config_file.write(config_text)
         config_file.close()
@@ -84,25 +81,29 @@ if args[1] == "build" then
     local config = textutils.unserializeJSON(configText)
 
     -- Verify project folder
-    if fs.isDir(config.project_folder) then
+    if not fs.isDir(config.project_folder) then
         print("Project folder not found")
         return
     end
+    print("Project folder:",config.project_folder)
 
     -- Verify entrypoint
-    if fs.exists(config.entry_file) then
+    if not fs.exists(config.entry_file) then
         print("Entry file does not exist")
         return
     end
+    print("Entry point:",config.entry_file)
 
     -- Verify output path
     if not config.output_path or config.output_path == "" then
         print("Output path not specified")
         return
     end
+    print("Output:",config.output_path)
 
     -- Build
-    local bundleFunc = loadfile("bundle.lua")
+    print("Bundling...")
+    local bundleFunc = loadfile("src/bundle.lua")
     if not bundleFunc then
         print("Bundler not found")
         return
@@ -113,7 +114,8 @@ if args[1] == "build" then
         config.output_path
     )
 
-    local minifyFunc = loadfile("minify.lua")
+    print("Minifying...")
+    local minifyFunc = loadfile("src/minify.lua")
     if not minifyFunc then
         print("Minifier not found")
         return
@@ -124,24 +126,36 @@ if args[1] == "build" then
         "50"
     )
 
+    print("Project built successfully")
     return
 end
 
 if args[1] == "bundle" then
-    local bundleFunc = loadfile("bundle.lua")
+    if not args[2] or not args[3] or not args[4] then
+        print("Usage: ccpack bundle <folder> <entry> <output>")
+        return
+    end
+    local bundleFunc = loadfile("src/bundle.lua")
     if not bundleFunc then
         print("Bundler not found")
         return
     end
     bundleFunc(args[2], args[3], args[4])
+    print("Bundled to "..args[4])
+    return
 end
 
 if args[1] == "minify" then
-    local minifyFunc = loadfile("minify.lua")
+    if not args[2] or not args[3] then
+        print("Usage: ccpack minify <input> <output>")
+        return
+    end
+    local minifyFunc = loadfile("src/minify.lua")
     if not minifyFunc then
         print("Minifier not found")
         return
     end
     minifyFunc(args[2], args[3], args[4], args[5])
+    print("Minified to "..args[3])
     return
 end

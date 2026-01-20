@@ -17,7 +17,7 @@ local globals = {
     "ipairs", "load", "loadstring", "next", "pairs", "pcall", "print",
     "rawequal", "rawget", "rawlen", "rawset", "select", "setmetatable",
     "tonumber", "tostring", "type", "xpcall", "dofile", "getfenv", "setfenv",
-    "unpack", "require", "module",
+    "unpack", "require", "module", "loadfile",
     
     -- Lua standard libraries
     "bit", "bit32", "coroutine", "debug", "io", "math", "os", "package",
