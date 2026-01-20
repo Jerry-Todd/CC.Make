@@ -40,6 +40,18 @@ local function run(path, entrypoint, output_name)
         -- Also map just the filename for simple requires
         local filename = fs.getName(value):gsub("%.lua$", "")
         fileMap[filename] = "Bundlefile"..i
+        
+        -- Map file paths for loadfile (with and without .lua extension)
+        fileMap[relativePath] = "Bundlefile"..i
+        fileMap[relativePath:gsub("%.lua$", "")] = "Bundlefile"..i
+        
+        -- Map just the filename with .lua for loadfile
+        local filenameWithLua = fs.getName(value)
+        fileMap[filenameWithLua] = "Bundlefile"..i
+        
+        -- Also map the full path (including bundle folder name)
+        fileMap[value] = "Bundlefile"..i
+        fileMap[value:gsub("%.lua$", "")] = "Bundlefile"..i
     end
     
     -- Replace require() calls with bundled function calls
@@ -61,9 +73,20 @@ local function run(path, entrypoint, output_name)
     end
     
     -- Add entrypoint function call at the end
-    local entrypointName = entrypoint:gsub("%.lua$", "")
-    if fileMap[entrypointName] then
-        output = output.."\n\n"..fileMap[entrypointName].."(...)"
+    local entrypointPath = entrypoint
+    -- Make entrypoint relative to bundle root if it's a full path
+    if entrypointPath:sub(1, #path) == path then
+        entrypointPath = entrypointPath:sub(#path + 2)
+    end
+    
+    -- Try multiple formats to find the entrypoint
+    local entrypointFunc = fileMap[entrypointPath] or 
+                          fileMap[entrypointPath:gsub("%.lua$", "")] or
+                          fileMap[fs.getName(entrypointPath)] or
+                          fileMap[fs.getName(entrypointPath):gsub("%.lua$", "")]
+    
+    if entrypointFunc then
+        output = output.."\n\n"..entrypointFunc.."(...)"
     end
     
     local outputfile = fs.open((output_name or "output.lua"), 'w')
