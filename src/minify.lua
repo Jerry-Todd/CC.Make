@@ -40,12 +40,31 @@ local function isKeyword(word)
     return false
 end
 
+local function showProgress(stage, current, total)
+    local percent = math.floor((current / total) * 100)
+    local barWidth = 30
+    local filled = math.floor((current / total) * barWidth)
+    local bar = string.rep("=", filled) .. string.rep("-", barWidth - filled)
+    term.clearLine()
+    term.setCursorPos(1, select(2, term.getCursorPos()))
+    write(stage .. ": [" .. bar .. "] " .. percent .. "%")
+end
+
 local function tokenize(code)
     local tokens = {}
     local i = 1
     local len = #code
+    local yieldCounter = 0
 
     while i <= len do
+        -- Yield every 50 iterations to prevent "too long without yielding"
+        yieldCounter = yieldCounter + 1
+        if yieldCounter % 50 == 0 then
+            showProgress("Tokenizing", i, len)
+            os.queueEvent("yield")
+            os.pullEvent("yield")
+        end
+        
         local char = code:sub(i, i)
 
         -- Skip whitespace
@@ -114,6 +133,8 @@ local function tokenize(code)
         end
     end
 
+    showProgress("Tokenizing", len, len)
+    print("")
     return tokens
 end
 
@@ -150,7 +171,17 @@ local function minify(tokens)
     
     -- First pass: identify all used identifiers, local variables, and export properties
     local i = 1
-    while i <= #tokens do
+    local yieldCounter = 0
+    local totalTokens = #tokens
+    while i <= totalTokens do
+        -- Yield every 50 iterations to prevent "too long without yielding"
+        yieldCounter = yieldCounter + 1
+        if yieldCounter % 50 == 0 then
+            showProgress("Analyzing", i, totalTokens)
+            os.queueEvent("yield")
+            os.pullEvent("yield")
+        end
+        
         local token = tokens[i]
         
         -- Track all identifiers
@@ -240,14 +271,21 @@ local function minify(tokens)
     end
     
     -- Second pass: rename tokens
+    showProgress("Analyzing", totalTokens, totalTokens)
+    print("")
     local result = {}
     for i = 1, #tokens do
+        if i % 50 == 0 then
+            showProgress("Renaming", i, #tokens)
+        end
         if renames[tokens[i]] then
             table.insert(result, renames[tokens[i]])
         else
             table.insert(result, tokens[i])
         end
     end
+    showProgress("Renaming", #tokens, #tokens)
+    print("")
     
     return result
 end
@@ -261,7 +299,11 @@ local function build_file(tokens, line_length)
         line_length = tonumber(line_length)
     end
     
-    for i = 1, #tokens do
+    local totalTokens = #tokens
+    for i = 1, totalTokens do
+        if i % 50 == 0 then
+            showProgress("Building", i, totalTokens)
+        end
         local token = tokens[i]
         local nextToken = tokens[i + 1]
         local prevToken = tokens[i - 1]
@@ -322,6 +364,8 @@ local function build_file(tokens, line_length)
         end
     end
     
+    showProgress("Building", totalTokens, totalTokens)
+    print("")
     return result
 end
 
