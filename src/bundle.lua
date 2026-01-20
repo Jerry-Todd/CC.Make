@@ -57,7 +57,7 @@ local function run(path, entrypoint, output_name)
     -- Replace require() calls with bundled function calls
     for filename, funcName in pairs(fileMap) do
         -- Escape special pattern characters in filename
-        local escapedFilename = filename:gsub("([%.%-])", "%%%1")
+        local escapedFilename = filename:gsub("([%.%-%+%*%?%[%]%^%$%(%)%%/])", "%%%1")
         -- Match require("filename") or require('filename')
         output = output:gsub('require%s*%(%s*["\']'..escapedFilename..'["\']%s*%)', funcName..'()')
     end
@@ -65,7 +65,7 @@ local function run(path, entrypoint, output_name)
     -- Replace loadfile() calls with bundled function references
     for filename, funcName in pairs(fileMap) do
         -- Escape special pattern characters in filename
-        local escapedFilename = filename:gsub("([%.%-])", "%%%1")
+        local escapedFilename = filename:gsub("([%.%-%+%*%?%[%]%^%$%(%)%%/])", "%%%1")
         -- Match loadfile("filename.lua") or loadfile('filename.lua')
         -- Also handle with or without .lua extension
         output = output:gsub('loadfile%s*%(%s*["\']'..escapedFilename..'%.lua["\']%s*%)', funcName)
