@@ -14,7 +14,8 @@ local globals = {
     "_G", "_VERSION", "assert", "collectgarbage", "error", "getmetatable",
     "ipairs", "load", "loadstring", "next", "pairs", "pcall", "print",
     "rawequal", "rawget", "rawlen", "rawset", "select", "setmetatable",
-    "tonumber", "tostring", "type", "xpcall",
+    "tonumber", "tostring", "type", "xpcall", "dofile", "getfenv", "setfenv",
+    "unpack", "require", "module",
     
     -- Lua standard libraries
     "bit", "bit32", "coroutine", "debug", "io", "math", "os", "package",
@@ -24,7 +25,10 @@ local globals = {
     "fs", "http", "os", "peripheral", "rednet", "redstone", "rs", "shell",
     "term", "textutils", "turtle", "vector", "window", "colors", "colours",
     "disk", "gps", "help", "keys", "paintutils", "parallel", "pocket",
-    "settings", "multishell", "commands"
+    "settings", "multishell", "commands",
+    
+    -- ComputerCraft I/O functions
+    "read", "write", "printError", "sleep"
 }
 
 local function isKeyword(word)
@@ -152,11 +156,10 @@ local function minify(tokens)
             used[token] = true
         end
         
-        -- Detect export variable property access (export.propertyName)
-        if token == export_var_name and i + 2 <= #tokens and tokens[i + 1] == "." then
-            local propName = tokens[i + 2]
-            if propName:match("^[%a_][%w_]*$") and not isKeyword(propName) then
-                exportProps[propName] = true
+        -- Preserve ALL property accesses (anything after a dot or colon)
+        if i >= 2 and (tokens[i - 1] == "." or tokens[i - 1] == ":") then
+            if token:match("^[%a_][%w_]*$") and not isKeyword(token) then
+                exportProps[token] = true
             end
         end
         
@@ -302,16 +305,21 @@ local function build_file(tokens, line_length)
     return result
 end
 
+
+
+-- Read input file
 local file = fs.open(path, 'r')
 if not file then
     error("Could not open file: " .. path)
 end
 
+-- Tokenize, minify, and rebuild code
 local tokens = tokenize(file.readAll())
 file.close()
 local minified = minify(tokens)
 local code = build_file(minified, tonumber(line_length))
 
+-- Write to output file
 local output_file = fs.open(output_path, 'w')
 if not output_file then
     error("Could not create output file: " .. output_path)
