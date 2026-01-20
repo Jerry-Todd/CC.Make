@@ -50,13 +50,23 @@ local function run(path, entrypoint, output_name)
         output = output:gsub('require%s*%(%s*["\']'..escapedFilename..'["\']%s*%)', funcName..'()')
     end
     
+    -- Replace loadfile() calls with bundled function references
+    for filename, funcName in pairs(fileMap) do
+        -- Escape special pattern characters in filename
+        local escapedFilename = filename:gsub("([%.%-])", "%%%1")
+        -- Match loadfile("filename.lua") or loadfile('filename.lua')
+        -- Also handle with or without .lua extension
+        output = output:gsub('loadfile%s*%(%s*["\']'..escapedFilename..'%.lua["\']%s*%)', funcName)
+        output = output:gsub('loadfile%s*%(%s*["\']'..escapedFilename..'["\']%s*%)', funcName)
+    end
+    
     -- Add entrypoint function call at the end
     local entrypointName = entrypoint:gsub("%.lua$", "")
     if fileMap[entrypointName] then
         output = output.."\n\n"..fileMap[entrypointName].."(...)"
     end
     
-    local outputfile = fs.open("Output/"..(output_name or "output.lua"), 'w')
+    local outputfile = fs.open((output_name or "output.lua"), 'w')
     outputfile.write(output)
     outputfile.close()
 end

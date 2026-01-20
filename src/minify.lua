@@ -1,7 +1,9 @@
-local path = ({ ... })[1]
-local output_path = ({ ... })[2]
-local export_var_name = ({ ... })[3] or "export"  -- configurable export variable name
-local line_length = ({ ... })[4]  -- configurable export variable name
+local args = { ... }
+
+local path = args[1]
+local output_path = args[2]
+local line_length = args[3]  -- configurable line length
+local export_var_name = args[4] or "export"  -- configurable export variable name
 
 local keywords = {
     "and", "break", "do", "else", "elseif", "end", "false", "for",
@@ -254,9 +256,15 @@ local function build_file(tokens, line_length)
     local result = ""
     local currentLineLength = 0
     
+    -- Convert line_length to number if it's a string
+    if type(line_length) == "string" then
+        line_length = tonumber(line_length)
+    end
+    
     for i = 1, #tokens do
         local token = tokens[i]
         local nextToken = tokens[i + 1]
+        local prevToken = tokens[i - 1]
         
         -- Determine if we need a space between this token and the next
         local needsSpace = false
@@ -284,13 +292,19 @@ local function build_file(tokens, line_length)
             end
         end
         
-        -- Calculate how much we're about to add
-        local addLength = #token + (needsSpace and 1 or 0)
-        
-        -- Check if we need a line break (only if line_length is set)
-        if line_length and line_length > 0 and currentLineLength + addLength > line_length and currentLineLength > 0 then
-            result = result .. "\n"
-            currentLineLength = 0
+        -- Check if this is a safe place to break (after statement terminators or keywords)
+        local isSafeBreakPoint = false
+        if line_length and line_length > 0 and currentLineLength > line_length then
+            -- Safe to break after these tokens
+            if token == ";" or token == "}" or token == ")" or token == "]" or
+               token == "end" or token == "do" or token == "then" or token == "else" then
+                isSafeBreakPoint = true
+            -- Safe to break before these keywords
+            elseif nextToken and (nextToken == "local" or nextToken == "function" or 
+                   nextToken == "if" or nextToken == "for" or nextToken == "while" or
+                   nextToken == "return" or nextToken == "end") then
+                isSafeBreakPoint = true
+            end
         end
         
         result = result .. token
@@ -299,6 +313,12 @@ local function build_file(tokens, line_length)
         if needsSpace then
             result = result .. " "
             currentLineLength = currentLineLength + 1
+        end
+        
+        -- Add line break at safe points when over limit
+        if isSafeBreakPoint then
+            result = result .. "\n"
+            currentLineLength = 0
         end
     end
     
